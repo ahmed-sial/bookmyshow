@@ -13,7 +13,8 @@ type HttpServer struct {
 }
 
 type AppConfig struct {
-	Env        string `yaml:"env" env-required:"true"`
+	Env        string `yaml:"env"    env-required:"true"`
+	DbUrl      string `yaml:"db_url" env-required:"true"`
 	HttpServer `yaml:"http_server" env-required:"true"`
 }
 

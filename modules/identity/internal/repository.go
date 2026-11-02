@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type IdentityRepository interface {
 	Create(ctx context.Context, u user) error
+	FindByID(ctx context.Context, id uuid.UUID) (*user, error)
 }
 
 type PostgresIdentityRepository struct {
@@ -58,4 +60,25 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+func (p *PostgresIdentityRepository) FindByID(ctx context.Context, id uuid.UUID) (*user, error) {
+	const query = `
+		SELECT id, first_name, last_name, email, phone_number
+		FROM users
+		WHERE id = $1
+		AND deleted_at IS NULL
+	`
+	var u user
+	var lastName sql.NullString
+	result := p.db.QueryRowContext(ctx, query, id)
+	err := result.Scan(&u.id, &u.firstName, &lastName, &u.email, &u.phoneNumber)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("find user: %w", err)
+	}
+	u.lastName = lastName.String
+	return &u, nil
 }

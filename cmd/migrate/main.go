@@ -5,24 +5,31 @@ import (
 	"os"
 
 	"github.com/ahmed-sial/bookmyshow/modules/platform/config"
+	"github.com/ahmed-sial/bookmyshow/modules/platform/logger"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	slog.Info("initializing database migrations")
+	cfg := config.MustLoad()
+
+	log := logger.MustNew(logger.Config{
+		Level:  cfg.Log.Level,
+		Format: cfg.Log.Format,
+		Env:    cfg.Env,
+	})
+	slog.SetDefault(log)
+
+	log.Info("initializing database migrations")
 	if len(os.Args) < 2 {
-		slog.Error("usage: migrate <up | down>")
+		log.Error("usage: migrate <up | down>")
 		os.Exit(1)
 	}
 
-	cfg := config.MustLoad()
-
-	slog.Info("running database migrations")
 	m, err := migrate.New("file://migrations", cfg.DbUrl)
 	if err != nil {
-		slog.Error("error while running migration", "error", err)
+		log.Error("error while running migration", "error", err)
 		os.Exit(1)
 	}
 
@@ -32,18 +39,18 @@ func main() {
 			if err == migrate.ErrNoChange {
 				break
 			} else {
-				slog.Error("migration up failed", "error", err)
+				log.Error("migration up failed", "error", err)
 				os.Exit(1)
 			}
 		}
 	case "down":
 		if err := m.Steps(-1); err != nil {
-			slog.Error("migration down failed", "error", err)
+			log.Error("migration down failed", "error", err)
 			os.Exit(1)
 		}
 	default:
-		slog.Error("unkown command")
+		log.Error("unknown command", "command", os.Args[1])
 		os.Exit(1)
 	}
-	slog.Info("database migrations run successful")
+	log.Info("database migrations run successful")
 }

@@ -8,6 +8,7 @@ import (
 
 var ErrEmailTaken = errors.New("email already registered")
 var ErrPhoneTaken = errors.New("phone number already registered")
+var ErrUserNotFound = errors.New("user not found")
 
 type ValidationError struct {
 	Fields []validator.FieldError

@@ -2,34 +2,45 @@ package identity
 
 import (
 	"context"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/ahmed-sial/bookmyshow/modules/platform/validator"
 )
 
 type IdentityService struct {
-	repo *IdentityRepository
+	repo      IdentityRepository
+	validator *validator.AppValidator
 }
 
-func NewIdentityService(repo *IdentityRepository) *IdentityService {
-	return &IdentityService{repo: repo}
+func NewIdentityService(repo IdentityRepository, v *validator.AppValidator) *IdentityService {
+	return &IdentityService{repo: repo, validator: v}
 }
 
-var appValidator = validator.NewAppValidator()
+func (s *IdentityService) CreateUser(ctx context.Context, dto CreateUserDto) error {
+	dto.FirstName = strings.TrimSpace(dto.FirstName)
+	dto.LastName = strings.TrimSpace(dto.LastName)
+	dto.Email = strings.ToLower(strings.TrimSpace(dto.Email))
+	dto.PhoneNumber = strings.ReplaceAll(strings.TrimSpace(dto.PhoneNumber), " ", "")
 
-func (s *IdentityService) CreateUserIdentity(ctx context.Context, u CreateUserDto) {
-	if errs := appValidator.ValidateStruct(u); len(errs) > 0 {
+	if errs := s.validator.ValidateStruct(dto); len(errs) > 0 {
+		return &ValidationError{Fields: errs}
 	}
-	/*
-			if errs := appValidator.ValidateStruct(dto); len(errs) > 0 {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity) // 422 is standard for validation issues
+	hash, err := hashPassword([]byte(dto.Password))
+	if err != nil {
+		return fmt.Errorf("hashing password: %w", err)
+	}
 
-			// Encode your clean, structured 'errs' slice directly to the client
-			// e.g., json.NewEncoder(w).Encode(map[string]interface{}{"errors": errs})
-			return
-		}
-
-		// Data is clean! Proceed to business logic / database
-		w.WriteHeader(http.StatusCreated)
-	*/
+	u := user{
+		id:           uuid.New(),
+		firstName:    dto.FirstName,
+		lastName:     dto.LastName,
+		email:        dto.Email,
+		passwordHash: string(hash),
+		phoneNumber:  dto.PhoneNumber,
+		status:       true,
+	}
+	return s.repo.Create(ctx, u)
 }

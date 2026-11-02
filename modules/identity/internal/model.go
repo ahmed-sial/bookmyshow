@@ -2,7 +2,8 @@ package identity
 
 import (
 	"time"
-	"uuid"
+
+	"github.com/google/uuid"
 )
 
 type user struct {

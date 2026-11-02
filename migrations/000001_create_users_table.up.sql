@@ -14,11 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL
         CHECK (length(password_hash) > 0),
 
-  phone_number VARCHAR(13) UNIQUE
-    CHECK (
-        phone_number IS NULL
-        OR phone_number ~ '^\+923[0-9]{9}$'
-    ), 
+    phone_number VARCHAR(16) UNIQUE
+        CHECK (
+            phone_number IS NULL OR phone_number ~ '^\+[1-9][0-9]{7,14}$'
+        ), 
 
     status BOOLEAN NOT NULL DEFAULT TRUE,
 

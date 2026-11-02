@@ -3,14 +3,14 @@ package identity
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type IdentityRepository interface {
-	Create(ctx context.Context, user user) error
-	FindByID(ctx context.Context, id string) (*user, error)
-	FindAll(ctx context.Context) ([]*user, error)
-	Update(ctx context.Context, user *user) error
-	Delete(ctx context.Context, id string) error
+	Create(ctx context.Context, u user) error
 }
 
 type PostgresIdentityRepository struct {
@@ -22,13 +22,40 @@ func NewPostgresIdentityRepository(db *sql.DB) *PostgresIdentityRepository {
 }
 
 func (p *PostgresIdentityRepository) Create(ctx context.Context, u user) error {
-	query := `
-		INSERT INTO users (first_name, last_name, email, password_hash, phone_number)
-		VALUES ($1, $2, $3, $4, $5)
-	`
-	_, err := p.db.ExecContext(ctx, query, u.firstName, u.lastName, u.email, u.passwordHash, u.phoneNumber, u.status)
+	const query = `
+		INSERT INTO users (id, first_name, last_name, email, password_hash, phone_number, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err := p.db.ExecContext(
+		ctx,
+		query,
+		u.id,
+		u.firstName,
+		nullIfEmpty(u.lastName),
+		u.email,
+		u.passwordHash,
+		u.phoneNumber,
+		u.status,
+	)
+
 	if err != nil {
-		return err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			switch pgErr.ConstraintName {
+			case "users_email_key":
+				return ErrEmailTaken
+			case "users_phone_number_key":
+				return ErrPhoneTaken
+			}
+		}
+		return fmt.Errorf("insert user: %w", err)
 	}
 	return nil
+}
+
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }

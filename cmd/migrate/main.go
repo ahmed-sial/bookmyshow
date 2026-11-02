@@ -29,8 +29,12 @@ func main() {
 	switch os.Args[1] {
 	case "up":
 		if err := m.Up(); err != nil {
-			slog.Error("migration up failed", "error", err)
-			os.Exit(1)
+			if err == migrate.ErrNoChange {
+				break
+			} else {
+				slog.Error("migration up failed", "error", err)
+				os.Exit(1)
+			}
 		}
 	case "down":
 		if err := m.Steps(-1); err != nil {
@@ -38,7 +42,8 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		slog.Error("unkown command", "error", err)
+		slog.Error("unkown command")
+		os.Exit(1)
 	}
 	slog.Info("database migrations run successful")
 }

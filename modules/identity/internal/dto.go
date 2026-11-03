@@ -1,5 +1,11 @@
 package identity
 
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
 type CreateUserDto struct {
 	FirstName   string `json:"firstName"   validate:"required,max=50"`
 	LastName    string `json:"lastName"    validate:"omitempty,max=50"`
@@ -14,4 +20,20 @@ type GetUserDto struct {
 	LastName    string `json:"lastName"`
 	Email       string `json:"email"`
 	PhoneNumber string `json:"phoneNumber"`
+}
+
+type UserLoginReqDto struct {
+	Email    string `json:"email"    validate:"required,email,max=255"`
+	Password string `json:"password" validate:"required,min=8,max=72,password"`
+}
+
+type UserLoginResDto struct {
+	ExpiresAt time.Time
+	Token     string
+	GetUserDto
+}
+
+type Claims struct {
+	Username string `json:"username"`
+	jwt.RegisteredClaims
 }

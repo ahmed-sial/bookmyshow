@@ -74,6 +74,39 @@ func (h *Handler) FindByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context(), h.log)
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB cap
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
+	var dto UserLoginReqDto
+	if err := dec.Decode(&dto); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	u, err := h.svc.Login(r.Context(), dto)
+	var ve *ValidationError
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusOK, u)
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   u.Token,
+			Expires: u.ExpiresAt,
+		})
+	case errors.As(err, &ve):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"errors": ve.Fields})
+	case errors.Is(err, ErrEmailNotFound):
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+	default:
+		log.Error("login user failed", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+	}
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

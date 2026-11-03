@@ -13,6 +13,8 @@ import (
 type IdentityRepository interface {
 	Create(ctx context.Context, u user) error
 	FindByID(ctx context.Context, id uuid.UUID) (*user, error)
+	FindByEmail(ctx context.Context, e string) (*user, error)
+	ExistsByEmail(ctx context.Context, e string) (bool, error)
 }
 
 type PostgresIdentityRepository struct {
@@ -81,4 +83,40 @@ func (p *PostgresIdentityRepository) FindByID(ctx context.Context, id uuid.UUID)
 	}
 	u.lastName = lastName.String
 	return &u, nil
+}
+
+func (p *PostgresIdentityRepository) FindByEmail(ctx context.Context, e string) (*user, error) {
+	const query = `
+		SELECT id, first_name, last_name, email, phone_number, password_hash
+		FROM users
+		WHERE email = $1
+		AND deleted_at IS NULL
+	`
+	var u user
+	var lastName sql.NullString
+	result := p.db.QueryRowContext(ctx, query, e)
+	err := result.Scan(&u.id, &u.firstName, &lastName, &u.email, &u.phoneNumber, &u.passwordHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("find user: %w", err)
+	}
+	u.lastName = lastName.String
+	return &u, nil
+}
+
+func (p *PostgresIdentityRepository) ExistsByEmail(ctx context.Context, e string) (bool, error) {
+	query := `SELECT EXISTS (
+		SELECT 1
+		FROM users
+		WHERE email = $1
+	)`
+
+	var exists bool
+	err := p.db.QueryRowContext(ctx, query, e).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }

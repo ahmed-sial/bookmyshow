@@ -41,7 +41,7 @@ func main() {
 
 	v := validator.NewAppValidator()
 	mux := http.NewServeMux()
-	identity.RegisterRoutes(mux, db, v, log)
+	identity.RegisterRoutes(mux, db, v, cfg, log)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Addr, cfg.Port),

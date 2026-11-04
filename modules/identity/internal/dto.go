@@ -28,8 +28,8 @@ type UserLoginReqDto struct {
 }
 
 type UserLoginResDto struct {
-	ExpiresAt time.Time
-	Token     string
+	ExpiresAt time.Time `json:"expiresAt"`
+	Token     string    `json:"token"`
 	GetUserDto
 }
 

@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -22,6 +23,8 @@ type IdentityService struct {
 func NewIdentityService(repo IdentityRepository, v *validator.AppValidator, cfg *config.AppConfig) *IdentityService {
 	return &IdentityService{repo: repo, validator: v, config: cfg}
 }
+
+const dummyHashedPassword = "$2a$10$ZOXOKa/wCzEaxePB7/wyW.iX3XaVn6tP.QpFvfRZxhy7CutXzvBx6"
 
 func (s *IdentityService) CreateUser(ctx context.Context, dto CreateUserDto) error {
 	dto.FirstName = strings.TrimSpace(dto.FirstName)
@@ -64,39 +67,23 @@ func (s *IdentityService) FindByID(ctx context.Context, id uuid.UUID) (*GetUserD
 	return &userDto, nil
 }
 
-// func (s *IdentityService) FindByEmail(ctx context.Context, email string) (*GetUserDto, error) {
-// 	u, err := s.repo.FindByEmail(ctx, email)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	userDto := GetUserDto{
-// 		ID:          u.id.String(),
-// 		FirstName:   u.firstName,
-// 		LastName:    u.lastName,
-// 		Email:       u.email,
-// 		PhoneNumber: u.phoneNumber,
-// 	}
-// 	return &userDto, nil
-// }
-
 func (s *IdentityService) Login(ctx context.Context, dto UserLoginReqDto) (*UserLoginResDto, error) {
-	dto.Email = strings.TrimSpace(dto.Email)
-	dto.Password = strings.TrimSpace(dto.Password)
-	exists, err := s.repo.ExistsByEmail(ctx, dto.Email)
-	if err != nil {
-		return nil, err // TODO
-	} else if !exists {
-		return nil, ErrEmailNotFound
+	dto.Email = strings.ToLower(strings.TrimSpace(dto.Email))
+	if errs := s.validator.ValidateStruct(dto); len(errs) > 0 {
+		return nil, &ValidationError{Fields: errs}
 	}
-
 	u, err := s.repo.FindByEmail(ctx, dto.Email)
 	if err != nil {
-		return nil, err
+		checkPassword([]byte(dto.Password), []byte(dummyHashedPassword))
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("find user by email: %w", err)
 	}
 
 	validPassword := checkPassword([]byte(dto.Password), []byte(u.passwordHash))
 	if !validPassword {
-		return nil, ErrUnauthorized
+		return nil, ErrPasswordInvalid
 	}
 
 	expirationTime := time.Now().Add(time.Minute * 10)

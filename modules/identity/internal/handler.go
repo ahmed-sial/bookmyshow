@@ -91,15 +91,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var ve *ValidationError
 	switch {
 	case err == nil:
-		writeJSON(w, http.StatusOK, u)
 		http.SetCookie(w, &http.Cookie{
-			Name:    "token",
-			Value:   u.Token,
-			Expires: u.ExpiresAt,
+			Name:     "token",
+			Value:    u.Token,
+			Expires:  u.ExpiresAt,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   true,
+			Path:     "/",
 		})
+		writeJSON(w, http.StatusOK, u)
 	case errors.As(err, &ve):
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"errors": ve.Fields})
-	case errors.Is(err, ErrEmailNotFound):
+	case errors.Is(err, ErrUserNotFound), errors.Is(err, ErrPasswordInvalid):
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 	default:
 		log.Error("login user failed", "error", err)

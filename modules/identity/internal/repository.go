@@ -14,7 +14,6 @@ type IdentityRepository interface {
 	Create(ctx context.Context, u user) error
 	FindByID(ctx context.Context, id uuid.UUID) (*user, error)
 	FindByEmail(ctx context.Context, e string) (*user, error)
-	ExistsByEmail(ctx context.Context, e string) (bool, error)
 }
 
 type PostgresIdentityRepository struct {
@@ -104,19 +103,4 @@ func (p *PostgresIdentityRepository) FindByEmail(ctx context.Context, e string) 
 	}
 	u.lastName = lastName.String
 	return &u, nil
-}
-
-func (p *PostgresIdentityRepository) ExistsByEmail(ctx context.Context, e string) (bool, error) {
-	query := `SELECT EXISTS (
-		SELECT 1
-		FROM users
-		WHERE email = $1
-	)`
-
-	var exists bool
-	err := p.db.QueryRowContext(ctx, query, e).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-	return exists, nil
 }

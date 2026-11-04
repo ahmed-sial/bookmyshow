@@ -14,6 +14,7 @@ type IdentityRepository interface {
 	Create(ctx context.Context, u user) error
 	FindByID(ctx context.Context, id uuid.UUID) (*user, error)
 	FindByEmail(ctx context.Context, e string) (*user, error)
+	DeleteByID(ctx context.Context, id uuid.UUID) error
 }
 
 type PostgresIdentityRepository struct {
@@ -45,9 +46,9 @@ func (p *PostgresIdentityRepository) Create(ctx context.Context, u user) error {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
 			switch pgErr.ConstraintName {
-			case "users_email_key":
+			case "users_email_active_key":
 				return ErrEmailTaken
-			case "users_phone_number_key":
+			case "users_phone_number_active_key":
 				return ErrPhoneTaken
 			}
 		}
@@ -103,4 +104,25 @@ func (p *PostgresIdentityRepository) FindByEmail(ctx context.Context, e string) 
 	}
 	u.lastName = lastName.String
 	return &u, nil
+}
+
+func (p *PostgresIdentityRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	const query = `
+		UPDATE users
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := p.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete user: rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }

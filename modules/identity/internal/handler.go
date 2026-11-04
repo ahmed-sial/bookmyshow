@@ -57,12 +57,12 @@ func (h *Handler) FindByID(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context(), h.log)
 
 	id := r.PathValue("id")
-	userId, err := uuid.Parse(id)
+	userID, err := uuid.Parse(id)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid uuid format"})
 		return
 	}
-	user, err := h.svc.FindByID(r.Context(), userId)
+	user, err := h.svc.FindByID(r.Context(), userID)
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, user)
@@ -107,6 +107,28 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 	default:
 		log.Error("login user failed", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+	}
+}
+
+func (h *Handler) DeleteByID(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context(), h.log)
+
+	id := r.PathValue("id")
+	userID, err := uuid.Parse(id)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid uuid format"})
+		return
+	}
+
+	err = h.svc.DeleteByID(r.Context(), userID)
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, ErrUserNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+	default:
+		log.Error("delete user failed", "error", err, "user_id", id)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 	}
 }

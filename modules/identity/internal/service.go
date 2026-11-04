@@ -108,5 +108,8 @@ func (s *IdentityService) Login(ctx context.Context, dto UserLoginReqDto) (*User
 		ExpiresAt:   expirationTime,
 	}
 	return &user, nil
+}
 
+func (s *IdentityService) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteByID(ctx, id)
 }

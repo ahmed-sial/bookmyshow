@@ -12,9 +12,16 @@ type HttpServer struct {
 	Port string `yaml:"port"    env-required:"true"`
 }
 
+type Log struct {
+	Level  string `yaml:"level"  env:"LOG_LEVEL" env-default:"info"`
+	Format string `yaml:"format" env:"LOG_FORMAT"`
+}
+
 type AppConfig struct {
-	Env        string `yaml:"env"    env-required:"true"`
-	DbUrl      string `yaml:"db_url" env-required:"true"`
+	Env        string `yaml:"env"        env-required:"true"`
+	DbUrl      string `yaml:"db_url"     env-required:"true"`
+	JwtSecret  string `yaml:"jwt_secret" env-required:"true"`
+	Log        Log    `yaml:"log"`
 	HttpServer `yaml:"http_server" env-required:"true"`
 }
 

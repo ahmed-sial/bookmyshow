@@ -2,10 +2,13 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
+	"github.com/ahmed-sial/bookmyshow/modules/platform/httputil"
 	"github.com/ahmed-sial/bookmyshow/modules/platform/types"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -19,9 +22,9 @@ type AuthConfig struct {
 type userIDKey struct{}
 
 // UserID returns the authenticated user's ID stored in ctx by JWTMiddleware.
-func UserID(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(userIDKey{}).(string)
-	return id, ok && id != ""
+func UserID(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(userIDKey{}).(uuid.UUID)
+	return id, ok && id != uuid.Nil
 }
 
 func JWTMiddleware(cfg AuthConfig) func(next http.Handler) http.Handler {
@@ -29,15 +32,31 @@ func JWTMiddleware(cfg AuthConfig) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractBearerToken(r)
 			if token == "" {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing authentication token"})
+				httputil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing authentication token"})
 				return
 			}
 			claims, err := validateToken(token, cfg)
-			if err != nil || claims == nil || claims.Subject == "" {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+			if err != nil {
+				// Expired tokens are still well-formed; tell the client to
+				// authenticate again instead of returning a generic failure.
+				if errors.Is(err, jwt.ErrTokenExpired) {
+					w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="token expired"`)
+					httputil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "token expired, please log in again"})
+					return
+				}
+				httputil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
 				return
 			}
-			ctx := context.WithValue(r.Context(), userIDKey{}, claims.Subject)
+			if claims == nil || claims.Subject == "" {
+				httputil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+				return
+			}
+			userID, err := uuid.Parse(claims.Subject)
+			if err != nil {
+				httputil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+				return
+			}
+			ctx := context.WithValue(r.Context(), userIDKey{}, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -48,18 +67,18 @@ func extractBearerToken(r *http.Request) string {
 	if header == "" {
 		return ""
 	}
-	scheme, token, ok := strings.Cut(header, " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
+	fields := strings.Fields(header)
+	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
 		return ""
 	}
-	return token
+	return fields[1]
 }
 
 func validateToken(t string, cfg AuthConfig) (*types.Claims, error) {
 	claims := &types.Claims{}
 	token, err := jwt.ParseWithClaims(t, claims, func(t *jwt.Token) (any, error) {
 		return []byte(cfg.JwtSecret), nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
 
 	if err != nil {
 		return nil, err
@@ -69,10 +88,4 @@ func validateToken(t string, cfg AuthConfig) (*types.Claims, error) {
 		return nil, nil
 	}
 	return claims, nil
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
 }

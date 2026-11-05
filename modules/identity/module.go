@@ -10,9 +10,9 @@ import (
 	"github.com/ahmed-sial/bookmyshow/modules/platform/validator"
 )
 
-func RegisterRoutes(mux *http.ServeMux, db *sql.DB, v *validator.AppValidator, cfg *config.AppConfig, log *slog.Logger) {
+func RegisterRoutes(mux *http.ServeMux, db *sql.DB, v *validator.AppValidator, cfg *config.AppConfig, log *slog.Logger, auth func(http.Handler) http.Handler) {
 	repo := internal.NewPostgresIdentityRepository(db)
 	svc := internal.NewIdentityService(repo, v, cfg)
 	h := internal.NewHandler(svc, log)
-	internal.RegisterRoutes(mux, h)
+	internal.RegisterRoutes(mux, h, auth)
 }

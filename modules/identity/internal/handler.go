@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ahmed-sial/bookmyshow/modules/platform/logger"
+	"github.com/ahmed-sial/bookmyshow/modules/platform/middleware"
 )
 
 type Handler struct {
@@ -55,14 +56,24 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) FindByID(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context(), h.log)
+	userID, ok := middleware.UserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+		return
+	}
 
-	id := r.PathValue("id")
-	userID, err := uuid.Parse(id)
+	viewerID, err := uuid.Parse(userID)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+		return
+	}
+
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid uuid format"})
 		return
 	}
-	user, err := h.svc.FindByID(r.Context(), userID)
+	user, err := h.svc.FindByID(r.Context(), id, viewerID)
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, user)
@@ -91,15 +102,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var ve *ValidationError
 	switch {
 	case err == nil:
-		http.SetCookie(w, &http.Cookie{
-			Name:     "token",
-			Value:    u.Token,
-			Expires:  u.ExpiresAt,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			Secure:   true,
-			Path:     "/",
-		})
 		writeJSON(w, http.StatusOK, u)
 	case errors.As(err, &ve):
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"errors": ve.Fields})
@@ -113,15 +115,27 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DeleteByID(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context(), h.log)
+	userID, ok := middleware.UserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+		return
+	}
 
-	id := r.PathValue("id")
-	userID, err := uuid.Parse(id)
+	viewerID, err := uuid.Parse(userID)
+	if err != nil {
+		// The token is issued by us; an invalid subject means the caller
+		// cannot be authenticated, not that the request is malformed.
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication failed"})
+		return
+	}
+
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid uuid format"})
 		return
 	}
 
-	err = h.svc.DeleteByID(r.Context(), userID)
+	err = h.svc.DeleteByID(r.Context(), id, viewerID)
 	switch {
 	case err == nil:
 		w.WriteHeader(http.StatusNoContent)

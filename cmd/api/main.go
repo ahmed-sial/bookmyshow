@@ -41,7 +41,8 @@ func main() {
 
 	v := validator.NewAppValidator()
 	mux := http.NewServeMux()
-	identity.RegisterRoutes(mux, db, v, cfg, log)
+	auth := middleware.JWTMiddleware(middleware.AuthConfig{JwtSecret: cfg.JwtSecret})
+	identity.RegisterRoutes(mux, db, v, cfg, log, auth)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Addr, cfg.Port),

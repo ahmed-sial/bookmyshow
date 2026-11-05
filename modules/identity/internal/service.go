@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ahmed-sial/bookmyshow/modules/platform/config"
+	"github.com/ahmed-sial/bookmyshow/modules/platform/types"
 	"github.com/ahmed-sial/bookmyshow/modules/platform/validator"
 )
 
@@ -52,7 +53,10 @@ func (s *IdentityService) CreateUser(ctx context.Context, dto CreateUserDto) err
 	return s.repo.Create(ctx, u)
 }
 
-func (s *IdentityService) FindByID(ctx context.Context, id uuid.UUID) (*GetUserDto, error) {
+func (s *IdentityService) FindByID(ctx context.Context, id uuid.UUID, viewerID uuid.UUID) (*GetUserDto, error) {
+	if id != viewerID {
+		return nil, ErrUserNotFound
+	}
 	u, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -87,8 +91,8 @@ func (s *IdentityService) Login(ctx context.Context, dto UserLoginReqDto) (*User
 	}
 
 	expirationTime := time.Now().Add(time.Minute * 10)
-	claims := &Claims{
-		Username:  u.email,
+	claims := &types.Claims{
+		Subject:   u.id.String(),
 		ExpiresAt: jwt.NewNumericDate(expirationTime),
 	}
 
@@ -105,11 +109,15 @@ func (s *IdentityService) Login(ctx context.Context, dto UserLoginReqDto) (*User
 		Email:       u.email,
 		PhoneNumber: u.phoneNumber,
 		Token:       tokenStr,
-		ExpiresAt:   expirationTime,
 	}
 	return &user, nil
 }
 
-func (s *IdentityService) DeleteByID(ctx context.Context, id uuid.UUID) error {
+func (s *IdentityService) DeleteByID(ctx context.Context, id uuid.UUID, viewerID uuid.UUID) error {
+	// A user may only delete their own account. Report not-found rather than
+	// forbidden so the response does not reveal whether the id exists.
+	if id != viewerID {
+		return ErrUserNotFound
+	}
 	return s.repo.DeleteByID(ctx, id)
 }

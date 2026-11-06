@@ -15,9 +15,15 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
 - Flow: handler -> service -> repository. Handlers parse/validate/respond only;
   SQL only in repositories; business rules only in services.
 - A module's `internal/` cannot be imported from outside it. Other modules use it only through `module.go`.
+- Only `identity` is implemented so far; the full scope (state machines, data model,
+  booking-transaction design) is specified in `docs/bookmyshow_specs.md`. Read the
+  relevant spec section before building a feature.
 
 ## Commands
-- Build: `make build`. Run: `make run` (needs `config.yaml` and Postgres via `docker compose up -d`).
+- `make run` executes `./bin/api` without building — run `make build` first (or `make sprint` = build + run).
+  It needs `config.yaml` (sets `CONFIG_PATH=config.yaml`) and Postgres via `docker compose up -d` (`bms_db`, port 5432).
+- Migrations: `CONFIG_PATH=config.yaml make migrate-up` / `make migrate-down` (the Makefile
+  does not set `CONFIG_PATH`; run from repo root, `migrate` uses the relative `file://migrations`).
 - Check (run before saying a task is done, never claim success without running it):
 
   ```bash
@@ -48,9 +54,10 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
 - No naked returns. No `panic` outside `main()`.
 
 ## Concurrency
-- Every goroutine needs a guaranteed exit path. Prefer `errgroup.WithContext`
-  when `golang.org/x/sync` is already available. Never add it as a dependency
-  without asking. Otherwise, use appropriate standard-library primitives.
+- Every goroutine needs a guaranteed exit path. Prefer `errgroup.WithContext` when
+  `golang.org/x/sync` is available — it is in go.mod (indirect). Never promote a
+  dependency to direct or add a new one without asking. Otherwise, use appropriate
+  standard-library primitives.
 - Functions and methods performing I/O must accept `context.Context` as their
   first parameter, unless a standard-library interface prescribes another
   signature (such as `http.Handler`).
@@ -89,6 +96,11 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
 - `config.yaml` holds secrets. Never commit it, print its values, or hardcode secrets.
   Config is read via `platform/config` (cleanenv).
 - Do not rename or move packages, or change the module path, without asking.
+
+## Notes
+- `skills-lock.json` pins the installed `samber/cc-skills-golang` skill collection;
+  manage it through the skills tool, not by hand.
+- No CI config exists; the Check block in Commands is the verification gate.
 
 ## Working with me
 - I am new to Go. Prefer simple, idiomatic code over clever abstractions, and add a

@@ -122,3 +122,5 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
   one-line explanation when you use a Go idiom that is not obvious.
 - Small diffs, one concern per change. Do not refactor unrelated code.
 - If the task is ambiguous, touches a landmine, or the spec is unclear, ask before editing.
+- NEVER run `git push` (or any remote-affecting git command) without explicitly
+  asking me first and getting my approval. Commits are fine; pushes are not.

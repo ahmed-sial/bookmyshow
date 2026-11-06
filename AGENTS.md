@@ -40,6 +40,19 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
 - One test: `go test -race -count=1 -timeout 60s -run '^TestName$' ./modules/identity/internal -v`
 - Keep `-race` and `-count=1`. Do not drop them to go faster.
 
+## Tests
+- Unit tests live beside the code (`*_test.go`, same package, table-driven with
+  named subtests). Repository SQL is covered by integration tests only.
+- Integration tests are build-tagged: `go test -race -count=1 -timeout 120s
+  -tags=integration ./modules/identity/internal`. They require `BMS_TEST_DB_URL`
+  pointing at a scratch Postgres and skip when the variable is unset. They
+  apply the repo migrations themselves and truncate `users` per case.
+- Never point `BMS_TEST_DB_URL` at the dev database (`bms_db` on 5432 local).
+  For a one-off local run: spin up a throwaway container on another port,
+  e.g. `docker run --rm -p 5433:5432 -e POSTGRES_USER=user
+  -e POSTGRES_PASSWORD=password -e POSTGRES_DB=bms_db_test postgres:17-alpine`,
+  then `BMS_TEST_DB_URL=postgres://user:password@localhost:5433/bms_db_test?sslmode=disable go test ...`.
+
 ## Errors
 - Wrap with context and `%w`: `fmt.Errorf("create user: %w", err)`. Never `%v`.
 - For error matching, use errors.Is() and errors.As(). Never directly compare
@@ -100,7 +113,9 @@ Go version is in `go.mod`; do not bump it or add dependencies without asking.
 ## Notes
 - `skills-lock.json` pins the installed `samber/cc-skills-golang` skill collection;
   manage it through the skills tool, not by hand.
-- No CI config exists; the Check block in Commands is the verification gate.
+- CI: `.github/workflows/ci.yml` runs the Check block, plus a separate
+  integration job with its own Postgres service container, on pushes to
+  `main` and on all PRs. Keep the workflow and the Check block in sync.
 
 ## Working with me
 - I am new to Go. Prefer simple, idiomatic code over clever abstractions, and add a

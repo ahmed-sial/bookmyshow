@@ -4,11 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
 )
+
+// phonePattern matches the users.phone_number CHECK constraint in the
+// database migrations exactly, so values the API accepts can never be
+// rejected by the schema (a mismatch would surface as a 500).
+var phonePattern = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 
 type FieldError struct {
 	Field   string `json:"field"`
@@ -41,6 +47,12 @@ func NewAppValidator() *AppValidator {
 			}
 		}
 		return upper && lower && digit
+	})
+
+	// Stricter than this validator's e164 rule, which accepts values the
+	// database CHECK would reject (no leading "+", too few digits).
+	v.RegisterValidation("phone", func(fl validator.FieldLevel) bool {
+		return phonePattern.MatchString(fl.Field().String())
 	})
 	return &AppValidator{validate: v}
 }
@@ -75,7 +87,7 @@ func msgForTag(tag string, param string) string {
 		return "This field is required."
 	case "email":
 		return "This must be a valid email address."
-	case "e164":
+	case "phone":
 		return "Must be a valid international phone number format (e.g., +1234567890)."
 	case "min":
 		return fmt.Sprintf("Must be at least %s characters long.", param)

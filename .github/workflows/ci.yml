@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Verbatim from AGENTS.md: gofmt, vet, and race-detector tests must all
+    # pass before a change can be called done.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          gofmt_files="$(gofmt -l .)"
+          if [ -n "$gofmt_files" ]; then
+            printf 'Files requiring gofmt:\n%s\n' "$gofmt_files"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -count=1 -timeout 60s ./...
+
+  integration:
+    # Repository tests run against a throwaway Postgres, never the dev
+    # database. The container lives and dies with this job.
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: bms_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d bms_db_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      BMS_TEST_DB_URL: postgres://user:password@localhost:5432/bms_db_test?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go test (integration)
+        run: go test -race -count=1 -timeout 120s -tags=integration ./modules/identity/internal

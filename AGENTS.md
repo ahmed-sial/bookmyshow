@@ -2,7 +2,6 @@
 
 Go backend for a ticket-booking app. Module: `github.com/ahmed-sial/bookmyshow`.
 Go version is in `go.mod`; do not bump it or add dependencies without asking.
-Product spec: `docs/bookmyshow-specs.md`. Read it before building a feature; do not edit it unasked.
 
 ## Layout
 - `cmd/api` (HTTP server) and `cmd/migrate` (migration runner): wiring only, no business logic.

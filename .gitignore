@@ -37,3 +37,6 @@ config.yaml
 
 # binaries
 /bin
+
+# agents
+.agents/

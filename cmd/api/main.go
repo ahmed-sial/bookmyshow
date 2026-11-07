@@ -43,10 +43,13 @@ func main() {
 	mux := http.NewServeMux()
 	auth := middleware.JWTMiddleware(middleware.AuthConfig{JwtSecret: cfg.JwtSecret})
 	identity.RegisterRoutes(mux, db, v, cfg, log, auth)
+	handler := middleware.RequestLogger(log)(
+		middleware.CorsMiddleware(middleware.CorsConfig{AllowedOrigins: cfg.AllowedOrigins})(mux),
+	)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Addr, cfg.Port),
-		Handler:           middleware.RequestLogger(log)(mux),
+		Handler:           handler,
 		ReadHeaderTimeout: time.Second * 5,
 		ReadTimeout:       time.Second * 10,
 		WriteTimeout:      time.Second * 30,

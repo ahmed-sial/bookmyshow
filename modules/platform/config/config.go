@@ -18,11 +18,12 @@ type Log struct {
 }
 
 type AppConfig struct {
-	Env        string `yaml:"env"        env-required:"true"`
-	DbUrl      string `yaml:"db_url"     env-required:"true"`
-	JwtSecret  string `yaml:"jwt_secret" env-required:"true"`
-	Log        Log    `yaml:"log"`
-	HttpServer `yaml:"http_server" env-required:"true"`
+	AllowedOrigins []string `yaml:"allowed_origins" env-required:"true"`
+	Env            string   `yaml:"env"             env-required:"true"`
+	DbUrl          string   `yaml:"db_url"          env-required:"true"`
+	JwtSecret      string   `yaml:"jwt_secret"      env-required:"true"`
+	Log            Log      `yaml:"log"`
+	HttpServer     `yaml:"http_server" env-required:"true"`
 }
 
 func MustLoad() *AppConfig {

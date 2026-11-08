@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 )
 
@@ -15,8 +14,6 @@ func TestMustLoad(t *testing.T) {
 		writeConfig(t, `env: test
 db_url: postgres://user:password@localhost:5432/bms_db?sslmode=disable
 jwt_secret: test-secret
-allowed_origins:
-  - https://app.bookmyshow.test
 http_server:
   address: 0.0.0.0
   port: "8080"
@@ -38,8 +35,6 @@ log:
 			t.Errorf("http_server = (%q, %q), want (0.0.0.0, 8080)", cfg.HttpServer.Addr, cfg.Port)
 		case cfg.Log.Level != "debug" || cfg.Log.Format != "json":
 			t.Errorf("log = %+v, want level debug format json", cfg.Log)
-		case !slices.Equal(cfg.AllowedOrigins, []string{"https://app.bookmyshow.test"}):
-			t.Errorf("allowed_origins = %v, want one app origin", cfg.AllowedOrigins)
 		}
 	})
 
@@ -47,8 +42,6 @@ log:
 		writeConfig(t, `env: test
 db_url: postgres://user:password@localhost:5432/bms_db?sslmode=disable
 jwt_secret: test-secret
-allowed_origins:
-  - https://app.bookmyshow.test
 http_server:
   address: 0.0.0.0
   port: "8080"

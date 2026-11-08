@@ -18,15 +18,13 @@ func CorsMiddleware(config CorsConfig) func(http.Handler) http.Handler {
 			isOriginAllowed := slices.Contains(config.AllowedOrigins, origin)
 
 			if !isOriginAllowed {
-				httputil.WriteJSON(w, http.StatusForbidden, "origin not allowed")
+				httputil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
 				return
 			}
 
-			// Set base CORS headers for allowed origins
-			if isOriginAllowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Vary", "Origin")
-			}
+			// Set base CORS headers for allowed origins.
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
 
 			// Handle CORS Preflight (OPTIONS) Requests properly
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
